@@ -100,3 +100,27 @@ h1{font-size:clamp(2.4rem,7vw,5rem);font-weight:800;background:linear-gradient(9
 .hub.open .hub-list{pointer-events:auto}
 .hub.open .hub-i{opacity:1;transform:none}
 .hub.open .hub-i:nth-last-child(2){transition-delay:.05s}.hub.open .hub-i:nth-last-child(3){transition-delay:.1s}.hub.open .hub-i:nth-last-child(4){transition-delay:.15s}
+
+.mbox input,.mbox select{width:100%;padding:13px 18px;border-radius:14px;border:1px solid var(--br);background:var(--card);color:var(--tx);margin-bottom:10px;font-size:1rem;font-family:inherit}
+#admin .tgs input{width:auto;padding:0;margin:0 4px}
+.tgs{display:flex;gap:12px;flex-wrap:wrap;margin-bottom:10px;font-size:.9rem}
+.tool{background:var(--card);color:var(--gold);border:1px solid var(--gold);margin:0 4px 14px}
+.bd{display:flex;gap:6px;flex-wrap:wrap;margin-top:4px}
+.bd span{font-size:.72rem;padding:2px 9px;border-radius:20px;background:#d4a24c22;color:var(--gold)}
+.pair{display:flex;align-items:center;gap:10px;justify-content:space-between;background:var(--card);border:1px dashed var(--gold);border-radius:14px;padding:10px;margin:8px 0;font-size:.9rem}
+.combo{background:var(--card);border:1px solid var(--br);border-radius:16px;padding:14px;margin-top:12px;line-height:1.8}
+.combo small{color:var(--mut);display:block}
+.sres{text-align:center;line-height:2.2;font-size:1.05rem}
+.big{font-size:2rem;color:var(--gold)}
+.tl{display:flex;flex-direction:column;margin:18px 0}
+.st{display:flex;align-items:center;gap:14px;padding:12px 0;position:relative;color:var(--mut);font-weight:600}
+.st i{width:34px;height:34px;border-radius:50%;display:grid;place-items:center;border:2px solid var(--br);font-style:normal;background:var(--card);z-index:1}
+.st:not(:last-child)::after{content:"";position:absolute;right:16px;top:46px;height:calc(100% - 22px);width:2px;background:var(--br)}
+.st.done{color:var(--tx)}.st.done i{background:var(--gold);border-color:var(--gold);color:#1b1307}
+.st.done:not(:last-child)::after{background:var(--gold)}
+.st.now{color:var(--gold)}.st.now i{border-color:var(--gold);animation:pulse2 1.4s infinite}
+@keyframes pulse2{50%{box-shadow:0 0 0 10px #d4a24c33}}
+.ko{border:1px solid var(--br);border-radius:14px;padding:10px;margin:10px 0}
+.kb{display:flex;gap:6px;flex-wrap:wrap;margin-top:8px}
+.kb button{border:1px solid var(--br);background:var(--card);color:var(--tx);border-radius:20px;padding:5px 10px;cursor:pointer;font-size:.78rem;font-family:inherit}
+.kb button.on{background:var(--gold);color:#1b1307;border-color:var(--gold)}
