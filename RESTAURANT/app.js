@@ -2,8 +2,10 @@
 const CONFIG = {
   name: "مطعم الذواقة",
   phone: "201000000000",   // رقم واتساب بالصيغة الدولية بدون +
-  pin: "1234",             // الرمز السري للوحة التحكم
+  pin: "123454321",        // الرمز السري للوحة التحكم
   currency: "ج.م",
+  countryCode: "20",     // مفتاح الدولة لتحويل 010... إلى +2010...
+  lucky: true,            // تفعيل ماكينة الحظ والخصم المفاجئ
   open: 12, close: 25      // 25 = 1 صباحاً
 };
 
@@ -53,19 +55,65 @@ function renderCart(){
     <div class="ci"><span>${esc(i.name)}<br><small>${i.price*n} ${CONFIG.currency}</small></span>
     <span class="q"><button data-m="${i.id}">−</button> ${n} <button data-p="${i.id}">+</button></span></div>`).join("") : "<p class='empty'>السلة فارغة</p>";
   const total = rows.reduce((s,[i,n])=>s+i.price*n,0);
-  $("#total").textContent = total + " " + CONFIG.currency;
+  const disc = store.get("disc",0), net = Math.round(total*(1-disc/100));
+  $("#total").innerHTML = (disc? `<s style="opacity:.5">${total}</s> `:"") + net + " " + CONFIG.currency + (disc? ` <small>🎁 -${disc}%</small>`:"");
   $("#cartCount").textContent = rows.reduce((s,[,n])=>s+n,0);
   store.set("cart", cart);
 }
-function sendOrder(){
+const normPhone = p => { p=p.replace(/[\s\-()]/g,""); if(p.startsWith("+")) return p; if(p.startsWith("00")) return "+"+p.slice(2);
+  return p.startsWith("0") ? "+"+CONFIG.countryCode+p.slice(1) : "+"+p };
+async function sendOrder(){
   const rows = Object.entries(cart).map(([id,n])=>[menu.find(i=>i.id==id),n]).filter(([i])=>i);
   if(!rows.length) return toast("السلة فارغة");
-  const total = rows.reduce((s,[i,n])=>s+i.price*n,0);
-  const msg = `🍽️ *طلب جديد - ${CONFIG.name}*\n\n` +
-    rows.map(([i,n])=>`• ${i.name} × ${n} = ${i.price*n}`).join("\n") +
-    `\n\n💰 *الإجمالي:* ${total} ${CONFIG.currency}\n👤 ${$("#custName").value||"-"}\n📍 ${$("#custAddr").value||"-"}`;
-  window.open(`https://wa.me/${CONFIG.phone}?text=${encodeURIComponent(msg)}`, "_blank");
+  const phone = normPhone($("#custPhone").value);
+  if(!/^\+\d{10,15}$/.test(phone)) return toast("أدخل رقم هاتف صحيح 📱");
+  const sub = rows.reduce((s,[i,n])=>s+i.price*n,0), disc = store.get("disc",0), total = Math.round(sub*(1-disc/100));
+  const payload = {name:$("#custName").value, phone, addr:$("#custAddr").value, discount:disc, total:total+" "+CONFIG.currency,
+    items:rows.map(([i,n])=>({name:i.name,n}))};
+  const btn=$("#sendOrder"); btn.disabled=true; btn.textContent="جارٍ الإرسال...";
+  let ok=false;
+  try{ const r=await fetch("/api/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); ok=(await r.json()).ok }catch{}
+  if(!ok){ // بديل: واتساب المطعم
+    const msg = `🍽️ *طلب جديد - ${CONFIG.name}*\n\n` + rows.map(([i,n])=>`• ${i.name} × ${n} = ${i.price*n}`).join("\n") +
+      `\n\n💰 *الإجمالي:* ${total} ${CONFIG.currency}${disc?` (خصم ${disc}%)`:""}\n👤 ${payload.name||"-"}\n📞 ${phone}\n📍 ${payload.addr||"-"}`;
+    window.open(`https://wa.me/${CONFIG.phone}?text=${encodeURIComponent(msg)}`, "_blank");
+  }
+  toast(ok?"✅ وصلتك رسالة تأكيد على هاتفك":"تم فتح واتساب لإتمام الطلب");
+  confetti(); cart={}; store.set("disc",0); renderCart(); $("#cart").classList.remove("open");
+  btn.disabled=false; btn.textContent="إرسال الطلب 📲";
 }
+
+/* ===== ماكينة الحظ ===== */
+let combo=[];
+const pick = a => a[Math.floor(Math.random()*a.length)];
+function spin(){
+  if(menu.length<3) return toast("أضف 3 أصناف على الأقل");
+  const cats=[...new Set(menu.map(i=>i.cat))].sort(()=>Math.random()-.5);
+  combo = cats.slice(0,3).map(c=>pick(menu.filter(i=>i.cat===c)));
+  while(combo.length<3) combo.push(pick(menu));
+  $("#spinBtn").disabled=true; $("#luckyAdd").hidden=true; $("#luckyRes").textContent="";
+  [0,1,2].forEach(k=>{ const r=$("#r"+k); r.classList.add("spin");
+    const t=setInterval(()=>r.textContent=pick(menu).emoji||"🍽️",90);
+    setTimeout(()=>{ clearInterval(t); r.classList.remove("spin"); r.textContent=combo[k].emoji||"🍽️";
+      if(k===2){ const sum=combo.reduce((s,i)=>s+i.price,0), d=pick([5,10,15]); combo.d=CONFIG.lucky?d:0;
+        $("#luckyRes").innerHTML=combo.map(i=>`<div>${esc(i.name)} — ${i.price}</div>`).join("")+
+          `<div class="win">${sum} ${CONFIG.currency}${combo.d?` · 🎁 خصم مفاجئ ${combo.d}%`:""}</div>`;
+        $("#spinBtn").disabled=false; $("#spinBtn").textContent="🔁 لفّة أخرى"; $("#luckyAdd").hidden=false; confetti(60) } },1000+k*600) });
+}
+$("#luckBtn").onclick=()=>$("#lucky").classList.add("open");
+$("#spinBtn").onclick=spin;
+$("#luckyAdd").onclick=()=>{ combo.forEach(i=>cart[i.id]=(cart[i.id]||0)+1); if(combo.d) store.set("disc",combo.d);
+  renderCart(); $("#lucky").classList.remove("open"); $("#cart").classList.add("open"); toast("أُضيفت الوجبة 🎉") };
+
+/* ===== قصاصات احتفال ===== */
+function confetti(n=140){
+  const c=$("#fx"), x=c.getContext("2d"); c.width=innerWidth; c.height=innerHeight;
+  const P=Array.from({length:n},()=>({x:innerWidth/2,y:innerHeight*.6,vx:(Math.random()-.5)*16,vy:-Math.random()*16-4,s:Math.random()*8+4,c:pick(["#d4a24c","#f2cf8a","#b5442f","#fff","#6bc48a"]),r:Math.random()*6}));
+  (function f(){ x.clearRect(0,0,c.width,c.height); let live=0;
+    P.forEach(p=>{ p.vy+=.45; p.x+=p.vx; p.y+=p.vy; p.r+=.2; if(p.y<c.height){live++; x.save(); x.translate(p.x,p.y); x.rotate(p.r); x.fillStyle=p.c; x.fillRect(-p.s/2,-p.s/2,p.s,p.s*.6); x.restore()} });
+    if(live) requestAnimationFrame(f); else x.clearRect(0,0,c.width,c.height) })();
+}
+if(!CONFIG.lucky) $("#luckBtn").hidden=true;
 
 /* ===== لوحة التحكم ===== */
 function renderList(){
@@ -117,8 +165,8 @@ document.addEventListener("click", e => {
   if(d("edit")){ const i=menu.find(x=>x.id==d("edit")); editId=i.id;
     $("#fName").value=i.name; $("#fDesc").value=i.desc||""; $("#fPrice").value=i.price; $("#fCat").value=i.cat; $("#fEmoji").value=i.emoji||"";
     $("#saveBtn").textContent="💾 حفظ التعديل"; $("#panel").scrollTo?.(0,0) }
-  if(t.hasAttribute("data-close")) { $("#cart").classList.remove("open"); $("#admin").classList.remove("open") }
-  if(t===$("#admin")) $("#admin").classList.remove("open");
+  if(t.hasAttribute("data-close")) { $("#cart").classList.remove("open"); $("#admin").classList.remove("open"); $("#lucky").classList.remove("open") }
+  if(t===$("#admin")||t===$("#lucky")) t.classList.remove("open");
 });
 $("#search").oninput = e => { q=e.target.value; render() };
 $("#cartBtn").onclick = () => $("#cart").classList.add("open");
