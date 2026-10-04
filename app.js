@@ -1,12 +1,18 @@
 /* ===== الإعدادات: عدّلها لكل عميل ===== */
 const CONFIG = {
-  name: "مطعم ميدان الشام",
-  phone: "201000000000",   // رقم واتساب بالصيغة الدولية بدون +
-  pin: "123454321",        // الرمز السري للوحة التحكم
+  name: "مطعم الذواقة",
+  tagline: "مكوّنات طازجة، وصفات أصيلة، ولمسة إبداع في كل طبق.",
+  about: "نؤمن أن الطعام الجيد يصنع الذكريات. نختار مكوّناتنا يومياً ونطهوها بشغف لنقدّم لك طعماً أصيلاً في أجواء دافئة.",
+  phone: "201000000000",   // واتساب بالصيغة الدولية بدون +
+  pin: "123454321",        // كلمة سر لوحة التحكم
   currency: "ج.م",
-  countryCode: "20",     // مفتاح الدولة لتحويل 010... إلى +2010...
-  lucky: true,            // تفعيل ماكينة الحظ والخصم المفاجئ
-  open: 12, close: 25      // 25 = 1 صباحاً
+  countryCode: "20",       // لتحويل 010... إلى +2010...
+  address: "", maps: "", instagram: "", facebook: "",
+  color: "#d4a24c",        // اللون الرئيسي للموقع
+  font: "Cairo",           // Cairo / Tajawal / Almarai / Amiri / Changa
+  tables: 10,              // عدد الطاولات (لرموز QR)
+  open: 12, close: 25,     // 25 = 1 صباحاً
+  lucky: true              // ماكينة اختيار الوجبة
 };
 
 const DEFAULT_MENU = [
@@ -25,6 +31,7 @@ const store = {
   get(k, d){ try{ return JSON.parse(localStorage.getItem(k)) ?? d }catch{ return d } },
   set(k, v){ try{ localStorage.setItem(k, JSON.stringify(v)) }catch{ toast("المساحة ممتلئة، استخدم صوراً أصغر") } }
 };
+Object.assign(CONFIG, store.get("settings", {}));
 let menu = store.get("menu", DEFAULT_MENU);
 let cart = store.get("cart", {});
 let cat = "الكل", q = "", editId = null, imgData = "";
@@ -55,55 +62,52 @@ function renderCart(){
     <div class="ci"><span>${esc(i.name)}<br><small>${i.price*n} ${CONFIG.currency}</small></span>
     <span class="q"><button data-m="${i.id}">−</button> ${n} <button data-p="${i.id}">+</button></span></div>`).join("") : "<p class='empty'>السلة فارغة</p>";
   const total = rows.reduce((s,[i,n])=>s+i.price*n,0);
-  const disc = store.get("disc",0), net = Math.round(total*(1-disc/100));
-  $("#total").innerHTML = (disc? `<s style="opacity:.5">${total}</s> `:"") + net + " " + CONFIG.currency + (disc? ` <small>🎁 -${disc}%</small>`:"");
+  $("#total").textContent = total + " " + CONFIG.currency;
   $("#cartCount").textContent = rows.reduce((s,[,n])=>s+n,0);
   store.set("cart", cart);
 }
-const normPhone = p => { p=p.replace(/[\s\-()]/g,""); if(p.startsWith("+")) return p; if(p.startsWith("00")) return "+"+p.slice(2);
-  return p.startsWith("0") ? "+"+CONFIG.countryCode+p.slice(1) : "+"+p };
+const normPhone = p => { p=p.replace(/[\s\-()]/g,""); if(p.startsWith("+")) return p; if(p.startsWith("00")) return "+"+p.slice(2); return p.startsWith("0") ? "+"+CONFIG.countryCode+p.slice(1) : "+"+p };
+const TABLE = new URLSearchParams(location.search).get("table");
+async function post(d){ try{ const r=await fetch("/api/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(d)}); return (await r.json()).ok }catch{ return false } }
+async function ping(text){ const ok=await post({kind:"note",text}); if(!ok) window.open(`https://wa.me/${CONFIG.phone}?text=${encodeURIComponent(text)}`,"_blank"); return ok }
 async function sendOrder(){
   const rows = Object.entries(cart).map(([id,n])=>[menu.find(i=>i.id==id),n]).filter(([i])=>i);
   if(!rows.length) return toast("السلة فارغة");
-  const phone = normPhone($("#custPhone").value);
-  if(!/^\+\d{10,15}$/.test(phone)) return toast("أدخل رقم هاتف صحيح 📱");
-  const sub = rows.reduce((s,[i,n])=>s+i.price*n,0), disc = store.get("disc",0), total = Math.round(sub*(1-disc/100));
-  const payload = {name:$("#custName").value, phone, addr:$("#custAddr").value, discount:disc, total:total+" "+CONFIG.currency,
-    items:rows.map(([i,n])=>({name:i.name,n}))};
+  const raw=$("#custPhone").value.trim(), phone=raw?normPhone(raw):"";
+  if((!TABLE||raw) && !/^\+\d{10,15}$/.test(phone)) return toast("أدخل رقم هاتف صحيح 📱");
+  const total=rows.reduce((s,[i,n])=>s+i.price*n,0);
+  const payload={kind:"order",name:$("#custName").value,phone,addr:$("#custAddr").value,table:TABLE,total:total+" "+CONFIG.currency,items:rows.map(([i,n])=>({name:i.name,n}))};
   const btn=$("#sendOrder"); btn.disabled=true; btn.textContent="جارٍ الإرسال...";
-  let ok=false;
-  try{ const r=await fetch("/api/order",{method:"POST",headers:{"Content-Type":"application/json"},body:JSON.stringify(payload)}); ok=(await r.json()).ok }catch{}
-  if(!ok){ // بديل: واتساب المطعم
-    const msg = `🍽️ *طلب جديد - ${CONFIG.name}*\n\n` + rows.map(([i,n])=>`• ${i.name} × ${n} = ${i.price*n}`).join("\n") +
-      `\n\n💰 *الإجمالي:* ${total} ${CONFIG.currency}${disc?` (خصم ${disc}%)`:""}\n👤 ${payload.name||"-"}\n📞 ${phone}\n📍 ${payload.addr||"-"}`;
-    window.open(`https://wa.me/${CONFIG.phone}?text=${encodeURIComponent(msg)}`, "_blank");
+  const ok=await post(payload);
+  if(!ok){
+    const msg=`🍽️ *طلب جديد - ${CONFIG.name}*${TABLE?` (طاولة ${TABLE})`:""}\n\n`+rows.map(([i,n])=>`• ${i.name} × ${n} = ${i.price*n}`).join("\n")+
+      `\n\n💰 *الإجمالي:* ${total} ${CONFIG.currency}\n👤 ${payload.name||"-"}\n📞 ${phone||"-"}\n📍 ${payload.addr||"-"}`;
+    window.open(`https://wa.me/${CONFIG.phone}?text=${encodeURIComponent(msg)}`,"_blank");
   }
-  toast(ok?"✅ وصلتك رسالة تأكيد على هاتفك":"تم فتح واتساب لإتمام الطلب");
-  confetti(); cart={}; store.set("disc",0); renderCart(); $("#cart").classList.remove("open");
+  toast(ok?"✅ تم إرسال طلبك":"تم فتح واتساب لإتمام الطلب");
+  confetti(); cart={}; renderCart(); $("#cart").classList.remove("open");
   btn.disabled=false; btn.textContent="إرسال الطلب 📲";
 }
 
-/* ===== ماكينة الحظ ===== */
+/* ===== ماكينة اختيار الوجبة ===== */
 let combo=[];
 const pick = a => a[Math.floor(Math.random()*a.length)];
 function spin(){
   if(menu.length<3) return toast("أضف 3 أصناف على الأقل");
   const cats=[...new Set(menu.map(i=>i.cat))].sort(()=>Math.random()-.5);
-  combo = cats.slice(0,3).map(c=>pick(menu.filter(i=>i.cat===c)));
+  combo=cats.slice(0,3).map(c=>pick(menu.filter(i=>i.cat===c)));
   while(combo.length<3) combo.push(pick(menu));
   $("#spinBtn").disabled=true; $("#luckyAdd").hidden=true; $("#luckyRes").textContent="";
   [0,1,2].forEach(k=>{ const r=$("#r"+k); r.classList.add("spin");
     const t=setInterval(()=>r.textContent=pick(menu).emoji||"🍽️",90);
     setTimeout(()=>{ clearInterval(t); r.classList.remove("spin"); r.textContent=combo[k].emoji||"🍽️";
-      if(k===2){ const sum=combo.reduce((s,i)=>s+i.price,0), d=pick([5,10,15]); combo.d=CONFIG.lucky?d:0;
-        $("#luckyRes").innerHTML=combo.map(i=>`<div>${esc(i.name)} — ${i.price}</div>`).join("")+
-          `<div class="win">${sum} ${CONFIG.currency}${combo.d?` · 🎁 خصم مفاجئ ${combo.d}%`:""}</div>`;
+      if(k===2){ const sum=combo.reduce((s,i)=>s+i.price,0);
+        $("#luckyRes").innerHTML=combo.map(i=>`<div>${esc(i.name)} — ${i.price}</div>`).join("")+`<div class="win">${sum} ${CONFIG.currency}</div>`;
         $("#spinBtn").disabled=false; $("#spinBtn").textContent="🔁 لفّة أخرى"; $("#luckyAdd").hidden=false; confetti(60) } },1000+k*600) });
 }
 $("#luckBtn").onclick=()=>$("#lucky").classList.add("open");
 $("#spinBtn").onclick=spin;
-$("#luckyAdd").onclick=()=>{ combo.forEach(i=>cart[i.id]=(cart[i.id]||0)+1); if(combo.d) store.set("disc",combo.d);
-  renderCart(); $("#lucky").classList.remove("open"); $("#cart").classList.add("open"); toast("أُضيفت الوجبة 🎉") };
+$("#luckyAdd").onclick=()=>{ combo.forEach(i=>cart[i.id]=(cart[i.id]||0)+1); renderCart(); $("#lucky").classList.remove("open"); $("#cart").classList.add("open"); toast("أُضيفت الوجبة 🎉") };
 
 /* ===== قصاصات احتفال ===== */
 function confetti(n=140){
@@ -165,8 +169,8 @@ document.addEventListener("click", e => {
   if(d("edit")){ const i=menu.find(x=>x.id==d("edit")); editId=i.id;
     $("#fName").value=i.name; $("#fDesc").value=i.desc||""; $("#fPrice").value=i.price; $("#fCat").value=i.cat; $("#fEmoji").value=i.emoji||"";
     $("#saveBtn").textContent="💾 حفظ التعديل"; $("#panel").scrollTo?.(0,0) }
-  if(t.hasAttribute("data-close")) { $("#cart").classList.remove("open"); $("#admin").classList.remove("open"); $("#lucky").classList.remove("open") }
-  if(t===$("#admin")||t===$("#lucky")) t.classList.remove("open");
+  if(t.hasAttribute("data-close")) { $("#cart").classList.remove("open"); $("#admin").classList.remove("open"); $("#lucky").classList.remove("open"); $("#reserve").classList.remove("open") }
+  if(t===$("#admin")||t===$("#lucky")||t===$("#reserve")) t.classList.remove("open");
 });
 $("#search").oninput = e => { q=e.target.value; render() };
 $("#cartBtn").onclick = () => $("#cart").classList.add("open");
@@ -191,5 +195,66 @@ const io = new IntersectionObserver(es=>es.forEach(x=>{ if(x.isIntersecting){ x.
     const t=setInterval(()=>{ v=Math.min(n,v+s); c.textContent=v.toLocaleString("ar-EG")+"+"; if(v>=n)clearInterval(t) },20) });
   io.unobserve(x.target) }}),{threshold:.2});
 document.querySelectorAll(".reveal").forEach(el=>io.observe(el));
+
+/* ===== تخصيص الموقع من لوحة التحكم ===== */
+const FIELDS=[["name","اسم المطعم"],["tagline","الوصف تحت العنوان"],["about","نبذة عنّا","textarea"],["phone","واتساب (دولي بدون +)"],["address","العنوان"],["maps","رابط خرائط جوجل"],["instagram","رابط انستجرام"],["facebook","رابط فيسبوك"],["color","اللون الرئيسي","color"],["font","الخط","font"],["currency","العملة"],["tables","عدد الطاولات","number"],["open","ساعة الفتح (0-24)","number"],["close","ساعة الإغلاق (25 = 1 ص)","number"],["pin","كلمة سر اللوحة"]];
+const FONTS=["Cairo","Tajawal","Almarai","Amiri","Changa"];
+const fmtH=h=>{h%=24; return (h%12||12)+(h<12?" ص":" م")};
+function applySettings(){
+  const r=document.documentElement.style;
+  r.setProperty("--gold",CONFIG.color); r.setProperty("--gold2",`color-mix(in srgb, ${CONFIG.color} 55%, #fff)`);
+  let l=$("#fl"); if(!l){ l=document.createElement("link"); l.id="fl"; l.rel="stylesheet"; document.head.appendChild(l) }
+  l.href=`https://fonts.googleapis.com/css2?family=${CONFIG.font}:wght@400;600;800&display=swap`;
+  document.body.style.fontFamily=`${CONFIG.font},Cairo,Tahoma,sans-serif`;
+  $("#rName").textContent=$("#heroTitle").textContent=CONFIG.name; document.title=CONFIG.name+" | قائمة الطعام";
+  $("#subTxt").textContent=CONFIG.tagline; $("#aboutTxt").textContent=CONFIG.about;
+  $("#phoneLine").innerHTML=`📞 <a href="tel:+${CONFIG.phone}" style="color:var(--gold)">+${CONFIG.phone}</a>`;
+  $("#addrLine").textContent=CONFIG.address?"📍 "+CONFIG.address:"";
+  $("#hoursLine").textContent=`🕑 يومياً من ${fmtH(CONFIG.open)} حتى ${fmtH(CONFIG.close)}`;
+  const h=new Date().getHours(), o=CONFIG.open, c=CONFIG.close, on=c>24?(h>=o||h<c-24):(h>=o&&h<c);
+  $("#openState").innerHTML=on?"🟢 مفتوح الآن":"🔴 مغلق حالياً";
+  buildHub();
+}
+$("#setForm").innerHTML=FIELDS.map(([k,l,t])=>t==="textarea"?`<label>${l}<textarea id="s_${k}" rows="3"></textarea></label>`:t==="font"?`<label>${l}<select id="s_${k}">${FONTS.map(f=>`<option>${f}</option>`).join("")}</select></label>`:`<label>${l}<input id="s_${k}" type="${t||"text"}"></label>`).join("")+`<button class="btn full">💾 حفظ التخصيص</button>`;
+FIELDS.forEach(([k])=>$("#s_"+k).value=CONFIG[k]);
+$("#setForm").onsubmit=e=>{ e.preventDefault(); const s={}; FIELDS.forEach(([k,,t])=>{ const v=$("#s_"+k).value; s[k]=t==="number"?+v:v }); store.set("settings",s); Object.assign(CONFIG,s); applySettings(); renderQR(); toast("تم الحفظ ✓") };
+
+/* ===== طاولات QR ===== */
+const qrUrl=(n,s=300)=>`https://api.qrserver.com/v1/create-qr-code/?size=${s}x${s}&data=${encodeURIComponent(location.origin+"/?table="+n)}`;
+function renderQR(){
+  const n=CONFIG.tables||0;
+  $("#qrBox").innerHTML=n?`<p class="small" style="color:var(--mut)">اطبع الرمز وضعه على الطاولة: الزبون يمسحه فيطلب مباشرة ويصلك الطلب برقم طاولته.</p><div class="qrs">`+Array.from({length:n},(_,i)=>`<div><img loading="lazy" width="110" height="110" alt="" src="${qrUrl(i+1,160)}"><br>طاولة ${i+1}</div>`).join("")+`</div><button class="btn full" id="qrPrint">🖨️ طباعة الكل</button>`:"حدد عدد الطاولات أولاً";
+}
+
+/* ===== مركز التواصل الذكي ===== */
+function buildHub(){
+  const L=[["🟢","واتساب",`https://wa.me/${CONFIG.phone}`],["📞","اتصل بنا",`tel:+${CONFIG.phone}`]];
+  if(CONFIG.maps) L.push(["📍","الاتجاهات",CONFIG.maps]);
+  if(CONFIG.instagram) L.push(["📸","انستجرام",CONFIG.instagram]);
+  if(CONFIG.facebook) L.push(["👍","فيسبوك",CONFIG.facebook]);
+  L.push(["📅","احجز طاولة","#reserve"]);
+  if(TABLE){ L.push(["🛎️","نداء النادل","#waiter"]); L.push(["🧾","اطلب الحساب","#bill"]) }
+  $("#hubList").innerHTML=L.map(([i,t,u])=>`<a class="hub-i" href="${esc(u)}" ${u[0]==="#"?`data-act="${u.slice(1)}"`:'target="_blank" rel="noopener"'}>${t} ${i}</a>`).join("");
+}
+let cool=0;
+document.addEventListener("click",e=>{
+  if(e.target.closest("#hubBtn")) return $("#hub").classList.toggle("open");
+  const a=e.target.closest("[data-act]");
+  if(a){ e.preventDefault(); $("#hub").classList.remove("open"); const k=a.dataset.act;
+    if(k==="reserve") return $("#reserve").classList.add("open");
+    if(Date.now()<cool) return toast("تم إبلاغ النادل، لحظات من فضلك ⏳");
+    cool=Date.now()+30000;
+    ping(k==="waiter"?`🛎️ طاولة ${TABLE} تطلب النادل`:`🧾 طاولة ${TABLE} تطلب الحساب`); toast("تم إبلاغ النادل ✓") }
+  else if(!e.target.closest("#hub")) $("#hub").classList.remove("open");
+  if(e.target.id==="qrPrint"){ const w=window.open("","_blank");
+    w.document.write(`<html dir="rtl"><body style="font-family:sans-serif;text-align:center">`+Array.from({length:CONFIG.tables},(_,i)=>`<div style="display:inline-block;width:300px;margin:20px;page-break-inside:avoid"><h2>${esc(CONFIG.name)}</h2><img src="${qrUrl(i+1)}" width="260"><h3>طاولة ${i+1}</h3><p>امسح الرمز واطلب من طاولتك 📱</p></div>`).join("")+`<script>onload=()=>setTimeout(print,800)<\/script></body></html>`); w.document.close() }
+});
+$("#rSend").onclick=()=>{
+  const n=$("#rN").value.trim(), p=$("#rPhone").value.trim(), g=$("#rGuests").value, w=$("#rWhen").value;
+  if(!n||!p||!g||!w) return toast("أكمل بيانات الحجز");
+  ping(`📅 حجز طاولة جديد\n👤 ${n}\n📞 ${p}\n👥 ${g} أشخاص\n🕒 ${w.replace("T"," ")}`); toast("تم إرسال طلب الحجز ✓"); $("#reserve").classList.remove("open");
+};
+if(TABLE){ $("#tableBanner").hidden=false; $("#tableBanner").textContent=`🪑 أنت تطلب من طاولة رقم ${TABLE} — اطلب وسيصلك الطعام إلى طاولتك`; $("#custAddr").value="طاولة "+TABLE; $("#custPhone").placeholder="رقم هاتفك (اختياري)" }
+applySettings(); renderQR();
 
 render();
