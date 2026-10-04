@@ -32,6 +32,7 @@
 
 <section id="menu" class="wrap">
   <h2 class="title reveal">قائمة الطعام</h2>
+  <div style="text-align:center"><button class="btn luck" id="luckBtn">🎰 محتار؟ جرّب حظك!</button></div>
   <input id="search" class="search" placeholder="🔍 ابحث عن طبقك المفضل...">
   <div id="chips" class="chips"></div>
   <div id="grid" class="grid"></div>
@@ -61,6 +62,7 @@
   <div class="dfoot">
     <p>الإجمالي: <b id="total">0</b></p>
     <input id="custName" placeholder="اسمك">
+    <input id="custPhone" type="tel" inputmode="tel" placeholder="رقم هاتفك (يصلك تأكيد بالرسائل) 📱">
     <input id="custAddr" placeholder="العنوان / رقم الطاولة">
     <button class="btn full" id="sendOrder">إرسال الطلب عبر واتساب 📲</button>
   </div>
@@ -95,6 +97,15 @@
     </div>
   </div>
 </div>
+<div id="lucky" class="modal"><div class="mbox" style="text-align:center">
+  <div class="dh"><h3>🎰 ماكينة الحظ</h3><button data-close>✕</button></div>
+  <p style="color:var(--mut)">لا تعرف ماذا تأكل؟ دع الحظ يختار لك وجبة كاملة + خصم مفاجئ!</p>
+  <div class="reels"><div class="reel" id="r0">❓</div><div class="reel" id="r1">❓</div><div class="reel" id="r2">❓</div></div>
+  <div id="luckyRes"></div>
+  <button class="btn full" id="spinBtn">🎲 لُفّ!</button>
+  <button class="btn full" id="luckyAdd" hidden>🛒 أضف الوجبة للسلة</button>
+</div></div>
+<canvas id="fx"></canvas>
 <div id="toast" class="toast"></div>
 <script src="app.js"></script>
 </body>
