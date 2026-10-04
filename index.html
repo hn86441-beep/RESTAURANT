@@ -24,7 +24,7 @@
   <div class="hero-in reveal">
     <p class="tag">✦ تجربة طعام لا تُنسى ✦</p>
     <h1 id="heroTitle"></h1>
-    <p class="sub">مكوّنات طازجة، وصفات أصيلة، ولمسة إبداع في كل طبق.</p>
+    <p class="sub" id="subTxt"></p>
     <a href="#menu" class="btn">استعرض القائمة</a>
     <span class="open" id="openState"></span>
   </div>
@@ -32,6 +32,7 @@
 
 <section id="menu" class="wrap">
   <h2 class="title reveal">قائمة الطعام</h2>
+  <div id="tableBanner" class="tbl" hidden></div>
   <div style="text-align:center"><button class="btn luck" id="luckBtn">🎰 محتار؟ جرّب حظك!</button></div>
   <input id="search" class="search" placeholder="🔍 ابحث عن طبقك المفضل...">
   <div id="chips" class="chips"></div>
@@ -40,7 +41,7 @@
 
 <section id="about" class="wrap about reveal">
   <h2 class="title">قصتنا</h2>
-  <p>نؤمن أن الطعام الجيد يصنع الذكريات. نختار مكوّناتنا يومياً ونطهوها بشغف لنقدّم لك طعماً أصيلاً في أجواء دافئة.</p>
+  <p id="aboutTxt"></p>
   <div class="stats">
     <div><b data-n="15">0</b><span>سنة خبرة</span></div>
     <div><b data-n="50">0</b><span>صنف</span></div>
@@ -49,7 +50,8 @@
 </section>
 
 <footer id="contact" class="wrap foot">
-  <p>🕑 يومياً من 12 ظهراً حتى 1 صباحاً</p>
+  <p id="hoursLine"></p>
+  <p id="addrLine"></p>
   <p id="phoneLine"></p>
   <p class="small">© <span id="yr"></span> جميع الحقوق محفوظة</p>
 </footer>
@@ -89,6 +91,8 @@
         <button class="btn full" id="saveBtn">➕ إضافة الصنف</button>
       </form>
       <div id="list"></div>
+      <details class="dt"><summary>🎨 تخصيص الموقع (الاسم، الألوان، الخط، التواصل...)</summary><form id="setForm"></form></details>
+      <details class="dt"><summary>🪑 رموز QR للطاولات</summary><div id="qrBox"></div></details>
       <div class="row tools">
         <button id="exportBtn">⬇️ نسخة احتياطية</button>
         <label class="file">⬆️ استيراد<input id="importFile" type="file" accept=".json" hidden></label>
@@ -99,11 +103,18 @@
 </div>
 <div id="lucky" class="modal"><div class="mbox" style="text-align:center">
   <div class="dh"><h3>🎰 ماكينة الحظ</h3><button data-close>✕</button></div>
-  <p style="color:var(--mut)">لا تعرف ماذا تأكل؟ دع الحظ يختار لك وجبة كاملة + خصم مفاجئ!</p>
+  <p style="color:var(--mut)">لا تعرف ماذا تأكل؟ دع الحظ يختار لك وجبة كاملة!</p>
   <div class="reels"><div class="reel" id="r0">❓</div><div class="reel" id="r1">❓</div><div class="reel" id="r2">❓</div></div>
   <div id="luckyRes"></div>
   <button class="btn full" id="spinBtn">🎲 لُفّ!</button>
   <button class="btn full" id="luckyAdd" hidden>🛒 أضف الوجبة للسلة</button>
+</div></div>
+<div class="hub" id="hub"><div class="hub-list" id="hubList"></div><button class="hub-btn" id="hubBtn" aria-label="تواصل">💬</button></div>
+<div id="reserve" class="modal"><div class="mbox">
+  <div class="dh"><h3>📅 حجز طاولة</h3><button data-close>✕</button></div>
+  <input id="rN" placeholder="الاسم"><input id="rPhone" type="tel" placeholder="رقم الهاتف">
+  <div class="row"><input id="rGuests" type="number" min="1" placeholder="عدد الأشخاص"><input id="rWhen" type="datetime-local"></div>
+  <button class="btn full" id="rSend">تأكيد الحجز</button>
 </div></div>
 <canvas id="fx"></canvas>
 <div id="toast" class="toast"></div>
