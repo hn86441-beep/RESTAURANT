@@ -1,5 +1,5 @@
 // Vercel Serverless Function: يرسل رسالة SMS للزبون وللمطعم (Twilio) + إشعار تيليجرام (اختياري)
-export default async function handler(req, res) {
+module.exports = async function handler(req, res) {
   if (req.method !== "POST") return res.status(405).json({ ok: false });
   const { name, phone, addr, items, total, discount } = req.body || {};
   if (!phone || !items?.length) return res.status(400).json({ ok: false, error: "بيانات ناقصة" });
